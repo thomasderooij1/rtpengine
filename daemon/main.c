@@ -270,10 +270,21 @@ static void __resolve_ifname(char *s, GQueue *addrs) {
 
 static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	str name;
+	str alias;
 	char *c;
 	sockaddr_t *addr, adv;
 	GQueue addrs = G_QUEUE_INIT;
 	struct intf_config *ifa;
+
+	/* alias */
+	if (c = strchr(s, '?')) { /* interface alias */
+		*c++ = 0;
+		str_init(&alias, s);
+		ilog(LOG_INFO, "Got alias '%s'", s);
+		s = c;
+	} else {
+		str_init(&alias, "");
+	}
 
 	/* name */
 	c = strchr(s, '/');
@@ -329,6 +340,8 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 	while ((addr = g_queue_pop_head(&addrs))) {
 		ifa = g_slice_alloc0(sizeof(*ifa));
 		str_init_dup_str(&ifa->name, &name);
+		if (alias.len)
+			str_init_dup_str(&ifa->alias, &alias);
 		ifa->local_address.addr = *addr;
 		ifa->local_address.type = socktype_udp;
 		ifa->advertised_address.addr = adv;

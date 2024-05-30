@@ -1397,6 +1397,9 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 		err = "'logical_intf' key not present";
 		if (redis_hash_get_str(&intf_name, rh, "logical_intf"))
 			goto err;
+		ilog(LOG_ERR, "Using logical interface: " STR_FORMAT,
+			STR_FMT(&intf_name));
+		
 		err = "'local_intf_uid' key not present";
 		if (redis_hash_get_unsigned(&loc_uid, rh, "local_intf_uid"))
 			goto err;

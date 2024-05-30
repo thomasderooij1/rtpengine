@@ -414,6 +414,7 @@ static const struct rtpengine_srtp __res_null = {
 static GQueue *__interface_list_for_family(sockfamily_t *fam);
 
 
+static GHashTable *__logical_intf_alias_family_hash; // alias + family -> struct logical_intf
 static GHashTable *__logical_intf_name_family_hash; // name + family -> struct logical_intf
 static GHashTable *__logical_intf_name_family_rr_hash; // name + family -> struct intf_rr
 static GHashTable *__intf_spec_addr_type_hash; // addr + type -> struct intf_spec
@@ -604,8 +605,21 @@ got_some:
 	return __get_logical_interface(name, fam);
 }
 static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam) {
-	struct logical_intf d, *log = NULL;
+	struct logical_intf a, *log = NULL;
 
+	a.alias = *name;
+	a.preferred_family = fam;
+
+	log = g_hash_table_lookup(__logical_intf_alias_family_hash, &a);
+	if (log) {
+		ilog(LOG_ERR, "Choose logical interface " STR_FORMAT " because of direction " STR_FORMAT,
+			STR_FMT(&log->name),
+			STR_FMT(name));
+		
+		return log;
+	}
+
+	struct logical_intf d;
 	d.name = *name;
 	d.preferred_family = fam;
 
@@ -620,6 +634,15 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 	}
 
 	return log;
+}
+
+static unsigned int __alias_family_hash(const void *p) {
+	const struct logical_intf *lif = p;
+	return str_hash(&lif->alias) ^ g_direct_hash(lif->preferred_family);
+}
+static int __alias_family_eq(const void *a, const void *b) {
+	const struct logical_intf *A = a, *B = b;
+	return str_equal(&A->alias, &B->alias) && A->preferred_family == B->preferred_family;
 }
 
 static unsigned int __name_family_hash(const void *p) {
@@ -774,9 +797,11 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		lif = g_slice_alloc0(sizeof(*lif));
 		g_queue_init(&lif->list);
 		lif->name = ifa->name;
+		lif->alias = ifa->alias;
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
 		lif->rr_specs = g_hash_table_new(str_hash, str_equal);
+		g_hash_table_insert(__logical_intf_alias_family_hash, lif, lif);
 		g_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
 		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);
@@ -822,6 +847,7 @@ void interfaces_init(GQueue *interfaces) {
 	sockfamily_t *fam;
 
 	/* init everything */
+	__logical_intf_alias_family_hash = g_hash_table_new(__alias_family_hash, __alias_family_eq);
 	__logical_intf_name_family_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
 	__logical_intf_name_family_rr_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
 	__intf_spec_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
@@ -3195,6 +3221,9 @@ void interfaces_free(void) {
 	}
 	g_list_free(ll);
 	g_hash_table_destroy(__logical_intf_name_family_hash);
+
+	g_list_free(ll);
+	g_hash_table_destroy(__logical_intf_alias_family_hash);
 
 	ll = g_hash_table_get_values(__local_intf_addr_type_hash);
 	for (GList *l = ll; l; l = l->next) {

@@ -1411,6 +1411,18 @@ best possible path to reach the RTP proxy.
 If ICE is not being used, then additional addresses will go unused,
 even though ports would still get allocated on those interfaces.
 
+An interface can have an alias, such that interface can be named uniquely.
+This is useful for example in anycast scenarios where multiple machines
+with different public IPs are handling traffic in an active-active setup.
+The direction specified would be the alias, so that is the same across all
+nodes in the cluster.
+
+    interface = public?pub1/IPv4 pub2/IPv4 pub3/IPv4
+
+When using the __direction__ "public", the logical interface pub1 will
+be used and is synced to the other nodes in the cluster via Redis.
+The other nodes will start listening on the (foreign) IP of pub1.
+
 Another option is to give interface names in the format *BASE:SUFFIX*.
 This allows interfaces to be used in a round-robin fashion, useful
 for load-balancing the port ranges of multiple interfaces.

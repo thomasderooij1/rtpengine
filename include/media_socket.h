@@ -76,6 +76,7 @@ struct streamhandler {
 
 struct logical_intf {
 	str				name;
+	str				alias;
 	sockfamily_t			*preferred_family;
 	GQueue				list; /* struct local_intf */
 	GHashTable			*rr_specs;
@@ -97,6 +98,7 @@ struct intf_config {
 	str				name; // full name (before the '/' separator in config)
 	str				name_base; // if name is "foo:bar", this is "foo"
 	str				name_rr_spec; // if name is "foo:bar", this is "bar"
+	str				alias;
 	struct intf_address		local_address;
 	struct intf_address		advertised_address;
 	unsigned int			port_min, port_max;
